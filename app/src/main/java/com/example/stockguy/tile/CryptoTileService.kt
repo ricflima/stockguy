@@ -1,55 +1,100 @@
 package com.example.stockguy.tile
 
-import android.graphics.Color
+import androidx.wear.protolayout.ColorBuilders
+import androidx.wear.protolayout.DeviceParametersBuilders
+import androidx.wear.protolayout.LayoutElementBuilders
+import androidx.wear.protolayout.ResourceBuilders
+import androidx.wear.protolayout.TimelineBuilders
+import androidx.wear.protolayout.material.Colors
+import androidx.wear.protolayout.material.Text
+import androidx.wear.protolayout.material.Typography
+import androidx.wear.protolayout.material.layouts.PrimaryLayout
 import androidx.wear.tiles.RequestBuilders
 import androidx.wear.tiles.TileBuilders
-import androidx.wear.tiles.TileProviderService
-import androidx.wear.tiles.material.Text
-import androidx.wear.tiles.material.layouts.PrimaryLayout
-import com.example.stockguy.data.ApiService
+import com.example.stockguy.data.BinanceApi
 import com.example.stockguy.data.DataStoreManager
+import com.example.stockguy.data.TickerResponse
+import com.google.android.horologist.annotations.ExperimentalHorologistApi
+import com.google.android.horologist.tiles.SuspendingTileService
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import javax.inject.Inject
 
-class CryptoTileService : TileProviderService() {
+@OptIn(ExperimentalHorologistApi::class)
+@AndroidEntryPoint
+class CryptoTileService : SuspendingTileService() {
 
-    override fun onTileRequest(requestParams: RequestBuilders.TileRequest): TileBuilders.Tile {
-        var price = "--"
-        var change = "--"
-        var selectedPair = "SOLUSDT"
-        var changeColor = Color.WHITE
+    @Inject
+    lateinit var dataStoreManager: DataStoreManager
 
-        runBlocking {
-            selectedPair = DataStoreManager.getSelectedPair(applicationContext).first()
-            try {
-                val ticker = ApiService.api.getTicker24h(selectedPair)
-                price = ticker.lastPrice
-                change = ticker.priceChangePercent
+    @Inject
+    lateinit var binanceApi: BinanceApi
 
-                val changeValue = change.toDoubleOrNull() ?: 0.0
-                changeColor = if (changeValue >= 0) Color.GREEN else Color.RED
+    override suspend fun tileRequest(
+        requestParams: RequestBuilders.TileRequest
+    ): TileBuilders.Tile {
+        return try {
+            val selectedPair = dataStoreManager.getSelectedPair().first()
+            val response = binanceApi.getTicker24h(selectedPair)
 
-            } catch (_: Exception) { }
+            if (response.isSuccessful && response.body() != null) {
+                createSuccessTile(response.body()!!, selectedPair)
+            } else {
+                createErrorTile(selectedPair, "API Error")
+            }
+        } catch (e: Exception) {
+            createErrorTile("SOL", "Network Error")
+        }
+    }
+
+    override suspend fun resourcesRequest(
+        requestParams: RequestBuilders.ResourcesRequest
+    ) = ResourceBuilders.Resources.Builder()
+        .setVersion("1")
+        .build()
+
+    private fun createSuccessTile(ticker: TickerResponse, symbol: String): TileBuilders.Tile {
+        val changeColor = if (ticker.isPositiveChange()) {
+            ColorBuilders.argb(0xFF4CAF50.toInt()) // Green
+        } else {
+            ColorBuilders.argb(0xFFF44336.toInt()) // Red
         }
 
-        val layout = PrimaryLayout.Builder()
-            .setPrimaryLabelText(selectedPair)
+        val cryptoName = ticker.getCryptoName()
+        val changeIcon = if (ticker.isPositiveChange()) "📈" else "📉"
+
+        val layout = PrimaryLayout.Builder(
+            DeviceParametersBuilders.DeviceParameters.Builder().build()
+        )
+            .setResponsiveContentInsetEnabled(true)
+            .setPrimaryLabelText(cryptoName) // Only crypto name (SOL, BTC, etc.)
             .setContent(
-                Text.Builder()
-                    .setText("💰 $price\n${if (changeColor == Color.GREEN) "📈" else "📉"} $change%")
-                    .setColor(changeColor)
+                LayoutElementBuilders.Column.Builder()
+                    .addContent(
+                        Text.Builder(this, "💰 ${ticker.getFormattedPrice()}")
+                            .setColor(ColorBuilders.argb(Colors.DEFAULT.onSurface))
+                            .setTypography(Typography.TYPOGRAPHY_TITLE3)
+                            .build()
+                    )
+                    .addContent(
+                        Text.Builder(this, "$changeIcon ${ticker.getFormattedChangePercent()}")
+                            .setColor(changeColor)
+                            .setTypography(Typography.TYPOGRAPHY_BODY1)
+                            .build()
+                    )
                     .build()
             )
             .build()
 
         return TileBuilders.Tile.Builder()
             .setResourcesVersion("1")
+            .setFreshnessIntervalMillis(60_000) // 1 minute
             .setTileTimeline(
-                TileBuilders.TileTimeline.Builder()
+                TimelineBuilders.Timeline.Builder()
                     .addTimelineEntry(
-                        TileBuilders.TimelineEntry.Builder()
+                        TimelineBuilders.TimelineEntry.Builder()
                             .setLayout(
-                                TileBuilders.Layout.Builder()
+                                LayoutElementBuilders.Layout.Builder()
                                     .setRoot(layout)
                                     .build()
                             )
@@ -60,8 +105,35 @@ class CryptoTileService : TileProviderService() {
             .build()
     }
 
-    override fun onResourcesRequest(requestParams: RequestBuilders.ResourcesRequest) =
-        androidx.wear.tiles.ResourceBuilders.Resources.Builder()
-            .setVersion("1")
+    private fun createErrorTile(symbol: String, error: String): TileBuilders.Tile {
+        val layout = PrimaryLayout.Builder(
+            DeviceParametersBuilders.DeviceParameters.Builder().build()
+        )
+            .setResponsiveContentInsetEnabled(true)
+            .setPrimaryLabelText(symbol)
+            .setContent(
+                Text.Builder(this, "❌ $error")
+                    .setColor(ColorBuilders.argb(0xFFF44336.toInt()))
+                    .setTypography(Typography.TYPOGRAPHY_CAPTION1)
+                    .build()
+            )
             .build()
+
+        return TileBuilders.Tile.Builder()
+            .setResourcesVersion("1")
+            .setTileTimeline(
+                TimelineBuilders.Timeline.Builder()
+                    .addTimelineEntry(
+                        TimelineBuilders.TimelineEntry.Builder()
+                            .setLayout(
+                                LayoutElementBuilders.Layout.Builder()
+                                    .setRoot(layout)
+                                    .build()
+                            )
+                            .build()
+                    )
+                    .build()
+            )
+            .build()
+    }
 }

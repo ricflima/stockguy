@@ -1,30 +1,32 @@
 package com.example.stockguy.tile
 
 import android.content.Context
-import androidx.wear.tiles.TileUpdateRequester
-import androidx.wear.tiles.TileUpdateRequesterFactory
+import androidx.hilt.work.HiltWorker
+import androidx.wear.tiles.TileService
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import androidx.wear.tiles.ComponentName
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
 
-class CryptoTileUpdateWorker(
-    appContext: Context,
-    params: WorkerParameters
-) : CoroutineWorker(appContext, params) {
+@HiltWorker
+class CryptoTileUpdateWorker @AssistedInject constructor(
+    @Assisted context: Context,
+    @Assisted workerParams: WorkerParameters
+) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
-        try {
-            val requester: TileUpdateRequester =
-                TileUpdateRequesterFactory.create(applicationContext)
-            requester.requestUpdate(
-                ComponentName(
-                    applicationContext.packageName,
-                    CryptoTileService::class.java.name
-                )
-            )
+        return try {
+            // Request tile update
+            TileService.getUpdater(applicationContext)
+                .requestUpdate(CryptoTileService::class.java)
+
+            Result.success()
         } catch (e: Exception) {
-            e.printStackTrace()
+            if (runAttemptCount < 3) {
+                Result.retry()
+            } else {
+                Result.failure()
+            }
         }
-        return Result.success()
     }
 }

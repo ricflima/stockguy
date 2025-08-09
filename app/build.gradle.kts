@@ -2,6 +2,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.hilt)
+    kotlin("kapt")
 }
 
 android {
@@ -14,33 +16,39 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
-
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
         }
+        debug {
+            isDebuggable = true
+        }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
     kotlinOptions {
         jvmTarget = "11"
     }
-    useLibrary("wear-sdk")
+
     buildFeatures {
         compose = true
+        buildConfig = true
     }
+
+    useLibrary("wear-sdk")
 }
 
 dependencies {
-
     implementation(libs.play.services.wearable)
     implementation(platform(libs.compose.bom))
     implementation(libs.ui)
@@ -53,34 +61,43 @@ dependencies {
     implementation(libs.core.splashscreen)
     implementation(libs.tiles)
     implementation(libs.tiles.material)
-    implementation(libs.tiles.tooling.preview)
     implementation(libs.horologist.compose.tools)
     implementation(libs.horologist.tiles)
-    implementation(libs.watchface.complications.data.source.ktx)
-    androidTestImplementation(platform(libs.compose.bom))
-    androidTestImplementation(libs.ui.test.junit4)
-    debugImplementation(libs.ui.tooling)
-    debugImplementation(libs.ui.test.manifest)
-    debugImplementation(libs.tiles.tooling)
+    implementation(libs.horologist.composables)
+    implementation(libs.horologist.compose.layout)
 
-    // ADICIONAL AI
-    implementation("androidx.datastore:datastore-preferences:1.1.1")
-    implementation("androidx.work:work-runtime-ktx:2.9.0")
+    // Hilt
+    implementation(libs.hilt.android)
+    kapt(libs.hilt.compiler)
+    implementation(libs.hilt.work)
+    kapt(libs.hilt.work.compiler)
 
-    implementation("androidx.wear.compose:compose-material:1.3.0")
-    implementation("androidx.wear.compose:compose-foundation:1.3.0")
-    implementation("androidx.activity:activity-compose:1.9.0")
+    // Networking
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.gson)
+    implementation(libs.okhttp.logging)
 
-    // Retrofit + Gson para a API da Binance
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
+    // DataStore
+    implementation(libs.datastore)
+
+    // Work Manager
+    implementation(libs.work.runtime)
+
+    // Lifecycle
+    implementation(libs.lifecycle.viewmodel)
+    implementation(libs.lifecycle.runtime)
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
-    // Tiles
-    implementation("androidx.wear.tiles:tiles:1.2.0")
-    implementation("androidx.wear.tiles:tiles-material:1.2.0")
-    implementation("androidx.wear.tiles:tiles-proto:1.2.0")
+    // Keep annotation
+    implementation("androidx.annotation:annotation:1.7.1")
+
+    // Debug tools
+    debugImplementation(libs.ui.tooling)
+    debugImplementation(libs.ui.test.manifest)
+
+    // Testing
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.ui.test.junit4)
 }
