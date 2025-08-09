@@ -1,9 +1,10 @@
 plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
-    id("com.google.devtools.ksp")
-    id("com.google.dagger.hilt.android")
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android") // Mantenha antes do KSP
+    id("com.google.devtools.ksp")      // Adicione KSP aqui
+    // id("kotlin-kapt") // REMOVA esta linha
+    id("com.google.dagger.hilt.android") // Se estiver usando Hilt
+    // ... outros plugins
 }
 
 android {
@@ -67,13 +68,23 @@ dependencies {
     implementation(libs.horologist.compose.layout)
 
     // Hilt (versão 2.48 para ficar consistente)
-    implementation("com.google.dagger:hilt-android:2.48")
+    implementation("com.google.dagger:hilt-android:2.48") // Ou a versão compatível que você escolheu
     ksp("com.google.dagger:hilt-compiler:2.48")
 
     // Networking
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)
     implementation(libs.okhttp.logging)
+
+    // Room
+    val roomVersion = "2.6.1" // Use a versão mais recente compatível com KSP
+    implementation("androidx.room:room-runtime:$roomVersion")
+    implementation("androidx.room:room-ktx:$roomVersion") // Recomendado para Kotlin
+    ksp("androidx.room:room-compiler:$roomVersion")
+
+    // Moshi
+    implementation("com.squareup.moshi:moshi-kotlin:1.15.0") // Ou versão mais recente
+    ksp("com.squareup.moshi:moshi-kotlin-codegen:1.15.0")
 
     // DataStore
     implementation(libs.datastore)
